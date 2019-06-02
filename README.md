@@ -1,4 +1,6 @@
-COMP3311 (Database-Systems):                                                 
+#COMP3311 (Database-Systems):
+
+  Main Topics:
     1. Introduction, Data Modelling, ER Model                                       
     2. Relational Model, ER-Relational Mapping, SQL Schemas                              
     3. Data Modification, Simple SQL Queries                         

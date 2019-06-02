@@ -1,8 +1,8 @@
 #COMP3311 (Database-Systems):
 
-  Main Topics:
-    1. Introduction, Data Modelling, ER Model                                       
-    2. Relational Model, ER-Relational Mapping, SQL Schemas                              
+Main Topics:
+		1. Introduction, Data Modelling, ER Model                                       
+		2. Relational Model, ER-Relational Mapping, SQL Schemas                              
     3. Data Modification, Simple SQL Queries                         
     4. Complex SQL Queries, Stored Procedures                               
     5. PLpgSQL, Aggregates, Triggers                            

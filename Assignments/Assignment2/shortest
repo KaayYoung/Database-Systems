@@ -1,0 +1,234 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 3) exit("Not enough arguments\n");
+if (count($argv) > 3) exit("Too many arguments\n");
+
+// Get the return results
+$source_actor = $argv[1];
+$target_actor = $argv[2];
+
+check_actor($db, $source_actor);
+check_actor($db, $target_actor);
+
+$i = 0;
+
+$q1 = "create or replace view sup_shortest(level, start_point, end_point, movie_title, movie_year) as 
+    WITH RECURSIVE find_relation as (
+      select 1 as level, y.start, actor.name, m.title, m.year from (select name as start from actor where name ILIKE %s) y, movie m, actor inner join
+        (select a1.actor_id, a1.movie_id
+        from acting a1
+        where 
+        a1.movie_id in 
+          (select movie_id from acting a3 inner join actor on a3.actor_id = actor.id where actor.name ILIKE %s))x on actor.id = x.actor_id
+      where x.movie_id = m.id
+        And lower(actor.name) != lower(%s)
+
+    UNION
+
+      select 1+temp.level as level, temp.name, a1.name, m.title, m.year
+        from movie m,  actor a1, find_relation temp, acting a2, actor a3, acting a4
+        where a3.name = temp.name and a2.actor_id = a3.id and m.id = a2.movie_id and a1.id = a4.actor_id and a4.movie_id = m.id
+          And lower(a1.name) != lower(temp.name)
+          And  temp.level < 6
+        
+) select * from find_relation";
+
+$r1 = dbQuery($db, mkSQL($q1, $source_actor, $source_actor, $source_actor, $source_actor, $source_actor, $source_actor));
+
+$q2 = "select min(level) from sup_shortest where end_point ilike %s";
+$r2 = dbQuery($db, mkSQL($q2, $target_actor));
+
+$t = dbNext($r2);
+
+if ($t[0] == 1) {
+  get_level_one($db);
+} else if ($t[0] == 2) {
+  get_level_one($db);
+  get_level_two($db);
+} else if ($t[0] == 3) {
+  get_level_one($db);
+  get_level_two($db);
+  get_level_three($db);
+} else if ($t[0] == 4){
+  get_level_one($db);
+  get_level_two($db);
+  get_level_three($db);
+  get_level_four($db);
+} else if ($t[0] == 5) {
+  get_level_one($db);
+  get_level_two($db);
+  get_level_three($db);
+  get_level_four($db);
+  get_level_five($db);
+} else {
+  get_level_one($db);
+  get_level_two($db);
+  get_level_three($db);
+  get_level_four($db);
+  get_level_five($db);
+  get_level_six($db);
+}
+
+print_result($db, $t[0], $target_actor);
+
+function print_result($database, $level_num, $target) {
+
+  $s1 = 'level_'.$level_num;
+  $s2 = 'level_'.$level_num.'_end';
+  
+  $i = 1;
+  $condition = "";
+  $j = 1;
+  while ($j <= $level_num) {
+    $l = 'level_'.$j.'_start ASC, ';
+    $condition .= $l;
+    $l = 'movie_title_'.$j.' ASC, ';
+    $condition .= $l;
+    $l = 'movie_year_'.$j.' ASC, ';
+    $condition .= $l;
+    $l = 'level_'.$j.'_end ASC, ';
+    $condition .= $l;
+    
+    $j++;
+  }
+  
+  $condition = rtrim($condition, ", ");
+
+  $q3 = "
+      select * from $s1 where $s2 ILIKE %s order by $condition";
+
+  $r3 = dbQuery($database, mkSQL($q3, $target));
+  
+  while ($t3 = dbNext($r3)) {
+    if (!empty($t3[3])) {
+      echo "$i. $t3[0] was in $t3[2] ($t3[3]) with $t3[1]";
+    } else {
+      echo "$i. $t3[0] was in $t3[2] with $t3[1]";
+    }
+    
+    if (!empty($t3[4])) {
+      if (!empty($t3[7])) {
+      echo "; $t3[4] was in $t3[6] ($t3[7]) with $t3[5]";
+      } else {
+        echo "; $t3[4] was in $t3[6] with $t3[5]";
+      }
+    }
+    if (!empty($t3[8])) {
+      if (empty($t3[11])) {
+        echo "; $t3[8] was in $t3[10] with $t3[9]";
+      } else {
+        
+        echo "; $t3[8] was in $t3[10] ($t3[11]) with $t3[9]";
+      }
+    }
+    if (!empty($t3[12])) {
+      if (!empty($t3[15])) {
+        echo "; $t3[12] was in $t3[14] ($t3[15]) with $t3[13]";
+      } else {
+        echo "; $t3[12] was in $t3[14] with $t3[13]";
+      }
+    }
+    if (!empty($t3[16])) {
+      if (!empty($t3[19])) {
+        echo "; $t3[16] was in $t3[18] ($t3[19]) with $t3[17]";
+      }
+      else {
+        echo "; $t3[16] was in $t3[18] with $t3[17]";
+      }
+    }
+    if (!empty($t3[20])) {
+      if (!empty($t3[23])) {
+        echo "; $t3[20] was in $t3[22] ($t3[23]) with $t3[21]";
+      }
+      else {
+        echo "; $t3[20] was in $t3[22] with $t3[21]";
+      }
+    }
+    echo "\n";
+    $i++;
+  }
+}
+
+function check_actor($database, $actor) {
+  $check = "
+  select * from actor where name ILIKE %s 
+  ";
+  $result = dbQuery($database, mkSQL($check, $actor));
+  $t0 = dbNext($result);
+  if (empty($t0)) exit();
+}
+
+function get_level_one($database) {
+  
+  $q = 
+  "create or replace view level_1(level_1_start, level_1_end, movie_title_1, movie_year_1) as
+    select start_point, end_point, movie_title, movie_year from sup_shortest 
+      group by level, start_point, end_point, movie_title, movie_year
+    having min(level) = 1
+    ";
+  $r = dbQuery($database, mkSQL($q));
+}
+
+function get_level_two($database) {
+  
+  $q = 
+  "create or replace view level_2(level_1_start, level_1_end, movie_title_1, movie_year_1, level_2_start, level_2_end, movie_title_2, movie_year_2) as
+    select level_1_start, level_1_end, movie_title_1, movie_year_1, a.start_point, a.end_point, a.movie_title, a.movie_year from level_1 
+      left outer join
+      (select * from sup_shortest group by level, start_point, end_point, movie_title, movie_year having min(level) = 2) a 
+    on level_1.level_1_end = a.start_point
+  ";
+  $r = dbQuery($database, mkSQL($q));
+}
+
+function get_level_three($database) {
+  
+  $q = 
+  "create or replace view level_3(level_1_start, level_1_end, movie_title_1, movie_year_1, level_2_start, level_2_end, movie_title_2, movie_year_2, level_3_start, level_3_end, movie_title_3, movie_year_3) as
+    select level_1_start, level_1_end, movie_title_1, movie_year_1, level_2_start, level_2_end, movie_title_2, movie_year_2, a.start_point, a.end_point, a.movie_title, a.movie_year from level_2
+      left outer join
+      (select * from sup_shortest group by level, start_point, end_point, movie_title, movie_year having min(level) = 3) a 
+    on level_2.level_2_end = a.start_point";
+  $r = dbQuery($database, mkSQL($q));
+}
+
+function get_level_four($database) {
+  
+  $q = 
+  "create or replace view level_4(level_1_start, level_1_end, movie_title_1, movie_year_1, level_2_start, level_2_end, movie_title_2, movie_year_2, level_3_start, level_3_end, movie_title_3, movie_year_3, level_4_start, level_4_end, movie_title_4, movie_year_4) as
+    select level_3.*, a.start_point, a.end_point, a.movie_title, a.movie_year from level_3
+      left outer join
+      (select * from sup_shortest group by level, start_point, end_point, movie_title, movie_year having level = 4) a  
+    on level_3.level_3_end = a.start_point";
+  $r = dbQuery($database, mkSQL($q));
+}
+
+function get_level_five($database) {
+  
+  $q = 
+  "create or replace view level_5(level_1_start, level_1_end, movie_title_1, movie_year_1, level_2_start, level_2_end, movie_title_2, movie_year_2, level_3_start, level_3_end, movie_title_3, movie_year_3, level_4_start, level_4_end, movie_title_4, movie_year_4, level_5_start, level_5_end, movie_title_5, movie_year_5) as
+    select level_4.*, a.start_point, a.end_point, a.movie_title, a.movie_year from level_4
+      left outer join
+      (select * from sup_shortest group by level, start_point, end_point, movie_title, movie_year having level = 5) a 
+    on level_4.level_4_end = a.start_point";
+  $r = dbQuery($database, mkSQL($q));
+}
+
+function get_level_six($database) {
+  
+  $q = 
+  "create or replace view level_6(level_1_start, level_1_end, movie_title_1, movie_year_1, level_2_start, level_2_end, movie_title_2, movie_year_2, level_3_start, level_3_end, movie_title_3, movie_year_3, level_4_start, level_4_end, movie_title_4, movie_year_4, level_5_start, level_5_end, movie_title_5, movie_year_5, level_6_start, level_6_end, movie_title_6, movie_year_6) as
+    select level_5.*, a.start_point, a.end_point, a.movie_title, a.movie_year from level_5
+      left outer join
+      (select * from sup_shortest group by level, start_point, end_point, movie_title, movie_year having level = 6) a 
+    on level_5.level_5_end = a.start_point";
+  $r = dbQuery($database, mkSQL($q));
+}
+
+?>

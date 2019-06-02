@@ -1,0 +1,82 @@
+#!/usr/bin/php
+<?php
+
+// include the common PHP code file
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+
+$db = dbConnect(DB_CONNECTION);
+
+$genres = "";
+// Check arguments
+if (count($argv) < 4) exit("Not enough arguments\n");
+else if (count($argv) == 4) {
+  $k = $argv[1];
+  $startyear = $argv[2];
+  $endyear = $argv[3];
+}
+
+else if (count($argv) == 5) {
+  $genres = $argv[1];
+  $k = $argv[2];
+  $startyear = $argv[3];
+  $endyear = $argv[4];
+
+  $str_array = explode ("&", $genres);
+}
+else exit("Too many arguments\n");
+
+// // Get the return results
+if ($genres == "") {
+  $q = "select title, year, content_rating, lang, (select r.imdb_score as score from rating r where m.id = r.movie_id),
+  (select r.num_voted_users as votes from rating r where m.id = r.movie_id)
+  from movie m where year >= %d and year <= %d order by score DESC, votes DESC limit %d";
+  $r = dbQuery($db, mkSQL($q, $startyear, $endyear, $k));
+}
+
+else {
+  $check_genre = "";
+  $i = 0;
+  while ($i < count($str_array)) {
+    $quote = "'".$str_array[$i]."'";
+    if ($i == 0) {
+      $check_genre = $quote." in (select distinct genre from genre where genre.movie_id = m.id)";
+    }
+    else {
+      $check = $quote." in (select distinct genre from genre where genre.movie_id = m.id)";
+      $check_genre .= " and ";
+      $check_genre .= $check;
+    }
+    $i++;
+  }
+
+  $q = "select title, year, content_rating, lang, (select r.imdb_score as score from rating r where m.id = r.movie_id),
+  (select r.num_voted_users as votes from rating r where m.id = r.movie_id)
+  from movie m where year >= %d and year <= %d and ".$check_genre."order by score DESC, votes DESC limit %d;";
+
+  $r = dbQuery($db, mkSQL($q, $startyear, $endyear, $k));
+
+}
+
+// Iterate through the results and print
+$i = 1;
+while ($t = dbNext($r)) {
+  echo "$i. $t[0] ($t[1]";
+
+  if (!empty($t[2])) {
+    echo ", $t[2]";
+  }
+  if (!empty($t[3])) {
+    echo ", $t[3]";
+  }
+  echo ") [$t[4]";
+
+  if (!empty($t[5]))
+    echo ", $t[5]";
+  echo "]";
+  echo "\n";
+  $i++;
+}
+
+?>

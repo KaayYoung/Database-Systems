@@ -1,0 +1,87 @@
+#!/usr/bin/php
+<?php
+
+//
+// pg - print all PG and PG-13 movies of a given year
+//
+
+// include the common PHP code file
+require("a2.php");
+
+
+
+// PROGRAM BODY BEGINS
+
+$usage = "Usage: $argv[0] title";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 2) exit("$usage\n");
+
+// Get the return results
+$val = '%';
+$val .= $argv[1];
+$val .= '%';
+
+$q1 = "select m.title, m.year, m.content_rating, 
+    (select r.imdb_score from rating r where r.movie_id = m.id) as imdb
+    from movie m 
+    where m.title ILIKE %s
+    order by year ASC, imdb DESC, title ASC";
+$r1 = dbQuery($db, mkSQL($q1, $val));
+
+
+$q2 = "select g.genre from genre g 
+      inner join movie m on g.movie_id = m.id
+      where m.title = %s";
+
+
+// Iterate through the results and print
+$i = 1;
+while ($t1 = dbNext($r1)) {
+  echo "$i. $t1[0] (";
+  if (!empty($t1[1])) {
+    echo "$t1[1]";
+    if (!empty($t1[2])) {
+      echo ", $t1[2]";
+      if (!empty($t1[3]))
+        echo ", $t1[3]";
+    }
+    else {
+      if (!empty($t1[3]))
+        echo ", $t1[3]";
+    }
+  } else {
+    if (!empty($t1[2])) {
+      echo "$t1[2]";
+      if (!empty($t1[3]))
+        echo ", $t1[3]";
+    }
+
+    else  {
+      if (!empty($t1[3]))
+        echo "$t1[3]";
+    }
+  }
+  echo ") ";
+
+  $r2 = dbQuery($db, mkSQL($q2, $t1[0]));
+  echo "[";
+
+  $j = 1;
+  while ($t2 = dbNext($r2)) {
+    if ($j == 1) {
+      if (!empty($t2[0]))
+      echo "$t2[0]";
+    }
+    else {
+      if (!empty($t2[0]))
+      echo ",$t2[0]";
+    }
+    $j++;
+  }
+  echo "]\n";
+  $i++;
+}
+
+?>

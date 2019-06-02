@@ -1,0 +1,59 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 4) exit("Not enough arguments\n");
+if (count($argv) > 4) exit("Too many arguments\n");
+
+// Get the return results
+$input_actor = $argv[1];
+$degree_1 = $argv[2];
+$degree_2 = $argv[3];
+
+if ($degree_1 > $degree_2) exit();
+
+$q1 = "create or replace view sup_degrees(level, start_point, end_point) as 
+    WITH RECURSIVE find_relation as (
+      select 1 as level, y.start, actor.name from (select name as start from actor where name ILIKE %s) y, actor inner join
+        (select a1.actor_id, a1.movie_id
+        from acting a1
+        where 
+        a1.movie_id in 
+          (select movie_id from acting a3 inner join actor on a3.actor_id = actor.id where actor.name ILIKE %s))x on actor.id = x.actor_id
+      where lower(actor.name) != lower(%s)
+
+    UNION
+
+      select 1+temp.level as level, temp.name, a1.name
+        from movie m, actor a1, find_relation temp, acting a2, actor a3, acting a4
+        where a3.name = temp.name and a2.actor_id = a3.id and m.id = a2.movie_id and a1.id = a4.actor_id and a4.movie_id = m.id
+          And lower(a1.name) != lower(temp.name)
+          And  temp.level < 6
+        
+) select * from find_relation";
+
+$r1 = dbQuery($db, mkSQL($q1, $input_actor, $input_actor, $input_actor));
+
+$q2 = "select * from (
+        select distinct end_point, min(level) as toplevel from sup_degrees 
+          where lower(end_point) != lower(%s) 
+          group by end_point
+        having min(level) >= %d and min(level) <= %d
+        ) x
+      order by toplevel ASC, lower(end_point) ASC";
+$r2 = dbQuery($db, mkSQL($q2, $input_actor, $degree_1, $degree_2));
+
+// Iterate through the results and print
+$i = 1;
+while ($t = dbNext($r2)) {
+  echo "$i. $t[0] ($t[1])\n";
+  $i++;
+}
+
+?>

@@ -1,0 +1,74 @@
+-- create or replace view Q1(Name, Country) as
+--     select name, Country
+--     from Company
+--     where Country <> 'Australia';
+
+-- create or replace view Q2(Code) as
+--     select c.code
+--     from Company c
+--     inner join Executive e
+--         on c.code = e.code
+--     group by c.code
+--     having count(e.person) > 5;
+    
+-- create or replace view Q3(Name) as 
+--     select co.Name
+--     from company co
+--         inner join category ca
+--         on co.code = ca.code
+--     where ca.Sector = 'Technology';
+
+-- create or replace view Q4(Sector, Number) as
+--     select Sector, count(*) as Number
+--     from category
+--     group by sector;
+
+-- create or replace view Q5(Name) as
+--     select e.person
+--     from Executive e
+--     where e.code in (
+--         select co.code 
+--         from company co
+--         where co.Name in 
+--         (
+--             select name from q3
+--         )
+--     );
+
+-- create or replace view Q6(Name) as
+--     select co.name 
+--     from company co
+--     where co.code in (
+--         select ca.code
+--             from category ca
+--             where ca.sector = 'Services'
+--         group by ca.code
+--         )
+--     And co.Country = 'Australia'
+--     And left(co.zip, 1) = '2';
+
+-- create or replace view Q7("Date", Code, Volume, PrevPrice, Price, Change, Gain) as
+--     select a3."Date", a3.code, a3.Volume, a3.PrevPrice, a3.Price, (a3.Price - a3.PrevPrice) as change, (a3.Price - a3.PrevPrice) / a3.PrevPrice * 100 as Gain
+--         from (
+--             select a1."Date", a1.code, a1.Volume, LAG(a1.Price, 1) over (partition by a1.code) as PrevPrice, a1.Price from
+--             (
+--                 select a2."Date", a2.code, a2.Volume, a2.Price
+--                     from ASX a2
+--                     group by a2.code, a2."Date"
+--                 order by a2.code, a2."Date"
+--                 ) a1
+--             ) a3
+--             where a3."Date" > (select min("Date") from ASX a2);
+
+-- create or replace view Q8("Date", Code, Volume) as
+--     select d1."Date", d1.code, max(d1.Volume) as Volumn
+--         from ASX d1
+--     inner join 
+--         (select "Date", max(Volume) as V2
+--             from ASX
+--             group by "Date"
+--         ) d2
+--         on d1."Date" = d2."Date"
+--         And Volume = V2
+--     group by d1."Date", d1.code
+--     order by d1."Date", d1.code;

@@ -1,0 +1,79 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 3) exit("Not enough arguments\n");
+else if (count($argv) == 3) {
+  
+  $movie_name = $argv[1];
+  $num_similar = $argv[2];
+  
+  $genres_movie = 
+    "
+    select title, year, g_rank, com_keys, i, v from (
+    select m.title, m.year, b1.g_rank, coalesce(b2.count, 0) as com_keys,
+    (select imdb_score from rating r where r.movie_id = m.id) as i,
+    (select num_voted_users from rating r where r.movie_id = m.id) as v
+    from
+      movie m,
+      (select m.id, count(a1.g1) as g_rank from genre g, movie m,
+        (select distinct genre as g1 from genre g, (select id from movie m1 where m1.title ILIKE %s order by m1.year DESC LIMIT 1) m2 
+          where m2.id = g.movie_id) a1
+        where g.movie_id = m.id and g.genre = a1.g1
+      group by m.id) b1
+
+      left outer join
+
+      (select mid, count(k1) as count from 
+        (select distinct m.id as mid, k.keyword as k_rank from keyword k, movie m where k.movie_id = m.id) a2
+          left outer join 
+          (select m3.id, keyword as k1 from keyword k, (select id from movie m1 where m1.title ILIKE %s order by m1.year DESC LIMIT 1) m3 
+            where k.movie_id = m3.id) a3 on a3.k1 = a2.k_rank
+        group by mid) b2
+
+      on b1.id = b2.mid
+    where b1.id = m.id and lower(m.title) != lower(%s)
+    order by g_rank DESC, com_keys DESC, i DESC, v DESC LIMIT %d) z;
+    ";
+  
+  //$q = "select title, content_rating, lang, duration from movie where year = %d and content_rating in ('PG','PG-13') order by title";
+  $r2 = dbQuery($db, mkSQL($genres_movie, $movie_name, $movie_name, $movie_name, $num_similar));
+}
+else exit("Too many arguments\n");
+
+//Iterate through the results and print
+$i = 1;
+while ($t = dbNext($r2)) {
+  echo "$i. $t[0]";
+  if (!empty($t[1])) {
+    echo " ($t[1]) [";
+  } 
+  else {
+    echo " [";
+  }
+  if (!empty($t[2])) {
+    echo "$t[2]";
+  }
+    
+  if (!empty($t[3])) {
+    echo ", $t[3]";
+  } else {
+    if ($t[3] == 0) {
+      echo ", 0";
+    }   
+  }
+  
+  if (!empty($t[4]))
+    echo ", $t[4]";
+  if (!empty($t[5]))
+    echo ", $t[5]";
+  echo "]\n";
+  $i++;
+}
+
+?>

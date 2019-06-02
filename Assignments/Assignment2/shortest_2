@@ -1,0 +1,128 @@
+#!/usr/bin/php
+<?php
+
+//
+// pg - print all PG and PG-13 movies of a given year
+//
+
+// include the common PHP code file
+require("a2.php");
+
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 3) exit("Not enough arguments\n");
+
+else if (count($argv) == 3) {
+  $source_actor = $argv[1];
+  $target_actor = $argv[2];
+}
+
+else exit("Too many arguments\n");
+// Get the return results
+
+$i = 0;
+$next_movie_id = 0;
+$next_actor = $source_actor;
+$joint_actors = array();
+$will_visit_actors = array();
+$will_visit_actors[] = $next_actor;
+$next_generation = array();
+$visited_actors = array();
+$path = array();
+$r = "";
+
+while ($i <= 6) {
+  $next_actor = $will_visit_actors[0];
+  $visited_actors[] = $next_actor;
+  
+  if ($i == 0) {
+    $r = get_intersect_movies($db, $next_actor, $target_actor);
+
+    if (dbNResults($r) != 0) {
+      print_result($r);
+      exit("Iterate $i time\n");
+    }
+    $path[0] = $next_actor;
+    get_related_actors($db, $joint_actors, $visited_actors, $next_actor);
+    foreach ($joint_actors as $value) {
+      $will_visit_actors[] = $value;
+    }
+  }
+  else
+  {
+
+    foreach ($will_visit_actors as $v1) {
+      get_related_actors($db, $joint_actors, $visited_actors, $next_actor);
+    
+      foreach ($joint_actors as $value) {
+        $r = get_intersect_movies($db, $value, $target_actor);
+        if (dbNResults($r) != 0) {
+          print_result($r);
+          exit("Iterate over $i times\n");
+        }
+        
+        $next_generation[] = $value;
+      }
+      array_splice($will_visit_actors, 0, 1);
+      $joint_actors = array();
+    }
+
+  }
+
+  $joint_actors = array();
+  echo "$i\n";
+  $i++;
+}
+
+
+// Get all related actors with one actor
+function get_related_actors($database, $related_actors, $visited_before, $current_actor) {
+  
+  $query = "select actor.name from actor inner join
+  (select distinct a1.actor_id 
+  from acting a1 
+  where a1.movie_id in 
+  (select distinct movie_id from acting a3 inner join actor on a3.actor_id = actor.id where actor.name ILIKE %s))x on actor.id = x.actor_id";
+  $result = dbQuery($db, mkSQL($query, $current_actor));
+
+  while ($t = dbNext($result)) {
+    if in_array($t[0], $visited_before) {
+      continue;
+    } 
+    else
+    {
+      $related_actors[] = $t[0];
+    }
+  }
+
+}
+
+
+// return all movies that they co-starred
+function get_intersect_movies($database, $actor_1, $actor_2) {
+  $query = "select m.title, m.year, start_actor, end_actor from movie m,
+  (select acting.movie_id as intersect_movies, actor.name as end_actor, start_actor from actor, acting,
+    (select distinct movie_id, actor.name as start_actor from actor, acting where acting.actor_id = actor.id and actor.name ILIKE %s) a
+      where actor.id = acting.actor_id and actor.name ILIKE %s and acting.movie_id = a.movie_id) b
+  where m.id = b.intersect_movies";
+  $result = dbQuery($database, mkSQL($query, $actor_1, $actor_2));
+  return $result;
+}
+
+
+// Iterate through the results and print
+function print_result($result) {
+  $i = 1;
+  while ($t = dbNext($result)) {
+    echo "$i. $t[2] was in ";
+    if (!empty($t[0]))
+      echo "$t[0] ";
+    if (!empty($t[1]))
+        echo "($t[1]) with $t[3]";
+    echo "\n";
+    $i++;
+  }
+}
+
+?>
